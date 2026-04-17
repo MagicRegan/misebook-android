@@ -43,23 +43,27 @@ enum class MeasurementUnit(
         /** Lenient parse of free-text unit strings. Returns [NONE] on unknown. */
         fun parse(raw: String?): MeasurementUnit {
             if (raw.isNullOrBlank()) return NONE
-            val s = raw.trim().lowercase().trimEnd('.').removeSuffix("s")
-            return when (s) {
-                "g", "gram", "grm" -> GRAM
-                "kg", "kilo", "kilogram" -> KILOGRAM
-                "oz", "ounce" -> OUNCE
-                "lb", "pound", "lbs" -> POUND
-                "ml", "milliliter", "millilitre" -> MILLILITER
-                "l", "lt", "liter", "litre" -> LITER
-                "tsp", "teaspoon" -> TEASPOON
-                "tbsp", "tablespoon", "tbs" -> TABLESPOON
-                "fl oz", "floz", "fluid ounce" -> FLUID_OUNCE
-                "cup", "c" -> CUP
-                "pc", "pcs", "piece", "pieces" -> PIECE
-                "clove" -> CLOVE
-                "doz", "dozen" -> DOZEN
-                else -> NONE
-            }
+            val cleaned = raw.trim().lowercase().trimEnd('.')
+            // Try the exact form first (so aliases ending in 's' like "tbs" or "lbs" match),
+            // then fall back to a singular form so "grams", "ounces" etc. also parse.
+            return match(cleaned) ?: match(cleaned.removeSuffix("s")) ?: NONE
+        }
+
+        private fun match(s: String): MeasurementUnit? = when (s) {
+            "g", "gram", "grm" -> GRAM
+            "kg", "kilo", "kilogram" -> KILOGRAM
+            "oz", "ounce" -> OUNCE
+            "lb", "pound", "lbs" -> POUND
+            "ml", "milliliter", "millilitre" -> MILLILITER
+            "l", "lt", "liter", "litre" -> LITER
+            "tsp", "teaspoon" -> TEASPOON
+            "tbsp", "tablespoon", "tbs" -> TABLESPOON
+            "fl oz", "floz", "fluid ounce" -> FLUID_OUNCE
+            "cup", "c" -> CUP
+            "pc", "pcs", "piece", "pieces" -> PIECE
+            "clove" -> CLOVE
+            "doz", "dozen" -> DOZEN
+            else -> null
         }
     }
 }
