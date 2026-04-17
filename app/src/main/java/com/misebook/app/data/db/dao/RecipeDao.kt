@@ -75,6 +75,9 @@ interface RecipeDao {
     @Query("DELETE FROM recipes WHERE id = :id")
     suspend fun delete(id: String)
 
+    @Query("DELETE FROM recipes WHERE workspaceId = :workspaceId")
+    suspend fun deleteForWorkspace(workspaceId: String)
+
     @Transaction
     suspend fun saveFull(
         recipe: RecipeEntity,

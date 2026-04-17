@@ -23,4 +23,7 @@ interface CategoryDao {
 
     @Query("DELETE FROM categories WHERE id = :id")
     suspend fun delete(id: String)
+
+    @Query("DELETE FROM categories WHERE workspaceId = :workspaceId")
+    suspend fun deleteForWorkspace(workspaceId: String)
 }

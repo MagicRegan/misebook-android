@@ -43,7 +43,7 @@ enum class MeasurementUnit(
         /** Lenient parse of free-text unit strings. Returns [NONE] on unknown. */
         fun parse(raw: String?): MeasurementUnit {
             if (raw.isNullOrBlank()) return NONE
-            val s = raw.trim().lowercase().trimEnd('.', 's')
+            val s = raw.trim().lowercase().trimEnd('.').removeSuffix("s")
             return when (s) {
                 "g", "gram", "grm" -> GRAM
                 "kg", "kilo", "kilogram" -> KILOGRAM
