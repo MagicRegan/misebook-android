@@ -72,9 +72,9 @@ class ImportViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            _state.value = _state.value.copy(isImporting = true, error = null)
+            _state.value = _state.value.copy(isImporting = true, error = null, source = ImportSource.TEXT)
             val parsed = withContext(Dispatchers.Default) { RecipeTextParser.parse(text) }
-            hydrateDraft(parsed, ImportSource.URL)
+            hydrateDraft(parsed, ImportSource.TEXT)
             _state.value = _state.value.copy(isImporting = false)
             onReady()
         }

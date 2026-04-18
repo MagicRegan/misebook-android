@@ -154,10 +154,13 @@ class UrlImporter @Inject constructor() {
 
     private fun extractFreeform(doc: Document, url: String): ParsedRecipe {
         val title = doc.title().ifBlank { doc.select("h1").first()?.text() ?: "Imported recipe" }
-        val bodyText = doc.select("article, main, [itemprop=recipeInstructions], .recipe, #recipe, body")
+        // Note: do not include `body` in the selector — Jsoup returns matches in document
+        // order, so `body` (an ancestor) would always come first and shadow the more
+        // specific recipe containers. Use `body` only as an explicit fallback.
+        val bodyText = doc.select("article, main, [itemprop=recipeInstructions], .recipe, #recipe")
             .firstOrNull()
             ?.text()
-            ?: doc.body().text()
+            ?: doc.body()?.text().orEmpty()
         val parsed = RecipeTextParser.parse(bodyText, sourceUrl = url, titleHint = title)
         val warnings = (parsed.warnings + "Site did not provide structured recipe data — please review carefully.").distinct()
         return parsed.copy(warnings = warnings, confidence = minOf(parsed.confidence, 0.6))

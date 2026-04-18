@@ -76,9 +76,14 @@ fun RecipeEditorScreen(
     val appState by appVm.state.collectAsStateWithLifecycle()
     val state by vm.state.collectAsStateWithLifecycle()
 
-    LaunchedEffect(recipeId, appState.currentWorkspace?.id) {
-        if (recipeId != null) vm.loadExisting(recipeId)
-        else appState.currentWorkspace?.id?.let { vm.initNew(it) }
+    LaunchedEffect(recipeId) {
+        if (recipeId != null) {
+            vm.loadExisting(recipeId)
+        } else {
+            // Read the workspace id inside the effect so a workspace switch while the
+            // editor is open doesn't re-trigger and wipe unsaved edits.
+            appState.currentWorkspace?.id?.let { vm.initNew(it) }
+        }
     }
 
     var tabIndex by remember { mutableIntStateOf(0) }

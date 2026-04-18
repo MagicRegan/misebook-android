@@ -47,4 +47,4 @@ data class ParsedDirection(
     )
 }
 
-enum class ImportSource { IMAGE, PDF, URL }
+enum class ImportSource { IMAGE, PDF, URL, TEXT }
