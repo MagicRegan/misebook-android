@@ -83,6 +83,13 @@ class RecipeEditorViewModel @Inject constructor(
     fun updateDirection(id: String, text: String) = update {
         it.copy(directions = it.directions.map { d -> if (d.id == id) d.copy(text = text) else d })
     }
+    fun moveDirection(from: Int, to: Int) = update {
+        val list = it.directions.toMutableList()
+        if (from !in list.indices || to !in list.indices) return@update it
+        val item = list.removeAt(from)
+        list.add(to, item)
+        it.copy(directions = list.reindexDir())
+    }
 
     fun save(onSuccess: (String) -> Unit) {
         val current = _state.value.recipe

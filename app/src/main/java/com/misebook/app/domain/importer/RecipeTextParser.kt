@@ -19,6 +19,13 @@ object RecipeTextParser {
     private val directionsHeaderRegex = Regex("(?i)^\\s*(directions?|instructions?|method|preparation|steps?)\\s*:?\\s*$")
     private val stepNumberPrefix = Regex("^\\s*(\\d+)[\\.)\\-]\\s+")
 
+    // A line that contains nothing but a step marker such as "1", "1.", "1)",
+    // ".1" (a common PDF artefact where glyphs are emitted out of order).
+    private val bareStepMarker = Regex("^\\s*\\.?\\s*\\d+\\s*[\\.)\\-]?\\s*$")
+    private val bareBulletMarker = Regex("^\\s*[•\\-*·]\\s*$")
+    // A line that looks like a word-wrap continuation (starts with lowercase).
+    private val continuationStart = Regex("^[a-z]")
+
     private val unicodeFractions = mapOf(
         '¼' to 0.25, '½' to 0.5, '¾' to 0.75,
         '⅓' to 1.0 / 3.0, '⅔' to 2.0 / 3.0,
@@ -27,7 +34,8 @@ object RecipeTextParser {
 
     fun parse(rawText: String, sourceUrl: String? = null, titleHint: String? = null): ParsedRecipe {
         val cleaned = rawText.replace("\r\n", "\n").trim()
-        val lines = cleaned.split("\n").map { it.trim() }.filter { it.isNotBlank() }
+        val rawLines = cleaned.split("\n").map { it.trim() }.filter { it.isNotBlank() }
+        val lines = reflowLines(rawLines)
         if (lines.isEmpty()) {
             return ParsedRecipe(title = titleHint ?: "Untitled", confidence = 0.0, warnings = listOf("No text detected"))
         }
@@ -67,7 +75,7 @@ object RecipeTextParser {
         }
 
         val parsedIngredients = ingredientLines.map { parseIngredientLine(it) }
-        val parsedDirections = directionLines.mapIndexed { idx, line ->
+        val parsedDirections = directionLines.map { line ->
             ParsedDirection(
                 text = line.replace(stepNumberPrefix, "").trim(),
                 confidence = if (stepNumberPrefix.containsMatchIn(line) || line.length > 25) 0.9 else 0.7
@@ -88,6 +96,71 @@ object RecipeTextParser {
             confidence = overallConfidence,
             warnings = warnings
         )
+    }
+
+    /**
+     * PDF and OCR extractors often split a single list item across multiple lines:
+     *
+     *     "1."
+     *     "Preheat the oven to 350°F."
+     *
+     * Or, when a PDF stores bullet glyphs out-of-order, the marker can appear as
+     * ".1" instead of "1." on its own line. This pass merges a bare marker with
+     * the line that follows it, and also joins obvious word-wrap continuations
+     * (lines starting with a lowercase letter or with a hyphenated word ending
+     * the previous line) back onto their parent line.
+     */
+    internal fun reflowLines(lines: List<String>): List<String> {
+        if (lines.isEmpty()) return lines
+        val result = mutableListOf<String>()
+        var i = 0
+        while (i < lines.size) {
+            val current = lines[i]
+            val isBareStep = bareStepMarker.matches(current)
+            val isBareBullet = bareBulletMarker.matches(current)
+            if ((isBareStep || isBareBullet) && i + 1 < lines.size) {
+                val nextRaw = lines[i + 1]
+                val next = nextRaw.trimStart()
+                // Keep a normalized "N." prefix for step markers so the parser's
+                // step-number regex still fires; drop stray leading dots/hyphens.
+                val prefix = when {
+                    isBareStep -> current.trim().trimStart('.', ' ').trimEnd('.', ')', '-', ' ').let {
+                        if (it.all { ch -> ch.isDigit() }) "$it." else it
+                    }
+                    else -> ""
+                }
+                val merged = if (prefix.isBlank()) next else "$prefix $next"
+                result.add(merged)
+                i += 2
+                continue
+            }
+            // Merge obvious soft-wrapped continuation lines: "Preheat the oven" + "to 350F"
+            if (result.isNotEmpty()) {
+                val prev = result.last()
+                val prevEndsHyphenated = prev.endsWith('-') && !prev.endsWith(" -")
+                val looksLikeContinuation =
+                    continuationStart.containsMatchIn(current) &&
+                    !bareStepMarker.containsMatchIn(current) &&
+                    !ingredientHeaderRegex.matches(current) &&
+                    !directionsHeaderRegex.matches(current) &&
+                    !prev.endsWith(':') &&
+                    // Only merge when the previous line ended mid-sentence.
+                    prev.lastOrNull()?.let { it.isLetter() || it == ',' || it == '-' } == true
+                if (prevEndsHyphenated) {
+                    result[result.size - 1] = prev.dropLast(1) + current
+                    i++
+                    continue
+                }
+                if (looksLikeContinuation) {
+                    result[result.size - 1] = "$prev $current"
+                    i++
+                    continue
+                }
+            }
+            result.add(current)
+            i++
+        }
+        return result
     }
 
     private enum class Section { UNKNOWN, INGREDIENTS, DIRECTIONS }

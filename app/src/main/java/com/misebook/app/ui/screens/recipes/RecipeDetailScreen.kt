@@ -1,5 +1,6 @@
 package com.misebook.app.ui.screens.recipes
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -66,6 +68,10 @@ fun RecipeDetailScreen(
     val recipe by vm.recipe.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var showDelete by remember { mutableStateOf(false) }
+    // Session-only "done" state so chefs can tick off prep and finished steps.
+    // Scoped per recipe; cleared whenever the detail screen is navigated away from.
+    val doneIngredients = remember(recipeId) { mutableStateOf(setOf<String>()) }
+    val doneDirections = remember(recipeId) { mutableStateOf(setOf<String>()) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -133,16 +139,45 @@ fun RecipeDetailScreen(
                 MetaHeader(r)
             }
             item { SectionTitle("Ingredients") }
+            item {
+                Text(
+                    "Tap to check off as you go.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+            }
             items(r.ingredients, key = { it.id }) { ing ->
+                val isDone = ing.id in doneIngredients.value
                 MiseCard(padding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(32.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                doneIngredients.value = doneIngredients.value.toggle(ing.id)
+                            }
+                    ) {
+                        val chipColor = if (isDone) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primaryContainer
+                        val chipContent = if (isDone) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onPrimaryContainer
+                        Surface(shape = CircleShape, color = chipColor, modifier = Modifier.size(32.dp)) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text(ing.displayQuantity.ifBlank { "•" }, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                Text(
+                                    if (isDone) "✓" else ing.displayQuantity.ifBlank { "•" },
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = chipContent
+                                )
                             }
                         }
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(ing.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                            Text(
+                                ing.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium,
+                                textDecoration = if (isDone) TextDecoration.LineThrough else TextDecoration.None,
+                                color = if (isDone) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
+                            )
                             val detail = buildString {
                                 if (ing.unit != com.misebook.app.domain.model.MeasurementUnit.NONE) append(ing.unit.displayShort)
                                 if (!ing.note.isNullOrBlank()) {
@@ -150,28 +185,64 @@ fun RecipeDetailScreen(
                                     append(ing.note)
                                 }
                             }
-                            if (detail.isNotBlank()) Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (detail.isNotBlank()) {
+                                Text(
+                                    detail,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textDecoration = if (isDone) TextDecoration.LineThrough else TextDecoration.None
+                                )
+                            }
                         }
                     }
                 }
             }
             item { SectionTitle("Directions") }
+            item {
+                Text(
+                    "Tap a step to mark it done.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+            }
             items(r.directions, key = { it.id }) { dir ->
+                val isDone = dir.id in doneDirections.value
                 MiseCard {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.size(28.dp)) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                doneDirections.value = doneDirections.value.toggle(dir.id)
+                            }
+                    ) {
+                        val stepColor = if (isDone) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.secondaryContainer
+                        val stepContent = if (isDone) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSecondaryContainer
+                        Surface(shape = RoundedCornerShape(10.dp), color = stepColor, modifier = Modifier.size(28.dp)) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text("${dir.position + 1}", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                Text(
+                                    if (isDone) "✓" else "${dir.position + 1}",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = stepContent
+                                )
                             }
                         }
-                        Text(dir.text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                        Text(
+                            dir.text,
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f),
+                            textDecoration = if (isDone) TextDecoration.LineThrough else TextDecoration.None,
+                            color = if (isDone) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 }
             }
             if (!r.notes.isNullOrBlank()) {
                 item { SectionTitle("Notes") }
                 item {
-                    MiseCard { Text(r.notes ?: "", style = MaterialTheme.typography.bodyMedium) }
+                    MiseCard { Text(r.notes.orEmpty(), style = MaterialTheme.typography.bodyMedium) }
                 }
             }
             item { Spacer(Modifier.height(24.dp)) }
@@ -203,6 +274,9 @@ fun RecipeDetailScreen(
 private fun SectionTitle(text: String) {
     Text(text, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(vertical = 4.dp))
 }
+
+private fun <T> Set<T>.toggle(value: T): Set<T> =
+    if (value in this) this - value else this + value
 
 @Composable
 private fun MetaHeader(r: Recipe) {

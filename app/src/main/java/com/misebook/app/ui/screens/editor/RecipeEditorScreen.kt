@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
@@ -55,6 +54,8 @@ import com.misebook.app.R
 import com.misebook.app.domain.model.MeasurementUnit
 import com.misebook.app.ui.AppViewModel
 import com.misebook.app.ui.components.MiseCard
+import com.misebook.app.ui.components.ReorderableColumn
+import com.misebook.app.ui.components.ReorderableItemScope
 
 private enum class EditorTab(val label: Int) {
     OVERVIEW(R.string.tab_overview),
@@ -206,14 +207,32 @@ private fun OverviewTab(vm: RecipeEditorViewModel) {
 @Composable
 private fun IngredientsTab(vm: RecipeEditorViewModel) {
     val state by vm.state.collectAsStateWithLifecycle()
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        items(state.recipe.ingredients, key = { it.id }) { ing ->
+        Text(
+            "Long-press the handle to drag and reorder.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        ReorderableColumn(
+            items = state.recipe.ingredients,
+            key = { it.id },
+            onMove = vm::moveIngredient
+        ) { ing, _ ->
             MiseCard {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Rounded.DragHandle,
+                            contentDescription = "Drag to reorder",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = dragHandle().size(24.dp)
+                        )
                         OutlinedTextField(
                             value = ing.quantity?.let { q ->
                                 if (q == q.toLong().toDouble()) q.toLong().toString()
@@ -253,25 +272,35 @@ private fun IngredientsTab(vm: RecipeEditorViewModel) {
                 }
             }
         }
-        item {
-            OutlinedButton(onClick = { vm.addIngredient() }, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Rounded.Add, null)
-                Spacer(Modifier.size(8.dp))
-                Text("Add ingredient")
-            }
-            Spacer(Modifier.height(80.dp))
+        OutlinedButton(onClick = { vm.addIngredient() }, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Rounded.Add, null)
+            Spacer(Modifier.size(8.dp))
+            Text("Add ingredient")
         }
+        Spacer(Modifier.height(80.dp))
     }
 }
 
 @Composable
 private fun DirectionsTab(vm: RecipeEditorViewModel) {
     val state by vm.state.collectAsStateWithLifecycle()
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        items(state.recipe.directions, key = { it.id }) { dir ->
+        Text(
+            "Long-press the handle to drag and reorder.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        ReorderableColumn(
+            items = state.recipe.directions,
+            key = { it.id },
+            onMove = vm::moveDirection
+        ) { dir, _ ->
             MiseCard {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -280,6 +309,13 @@ private fun DirectionsTab(vm: RecipeEditorViewModel) {
                                 Text("${dir.position + 1}", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
                             }
                         }
+                        Spacer(Modifier.size(8.dp))
+                        Icon(
+                            Icons.Rounded.DragHandle,
+                            contentDescription = "Drag to reorder",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = dragHandle().size(24.dp)
+                        )
                         Spacer(Modifier.weight(1f))
                         IconButton(onClick = { vm.removeDirection(dir.id) }) {
                             Icon(Icons.Rounded.Close, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -294,14 +330,12 @@ private fun DirectionsTab(vm: RecipeEditorViewModel) {
                 }
             }
         }
-        item {
-            OutlinedButton(onClick = { vm.addDirection() }, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Rounded.Add, null)
-                Spacer(Modifier.size(8.dp))
-                Text("Add step")
-            }
-            Spacer(Modifier.height(80.dp))
+        OutlinedButton(onClick = { vm.addDirection() }, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Rounded.Add, null)
+            Spacer(Modifier.size(8.dp))
+            Text("Add step")
         }
+        Spacer(Modifier.height(80.dp))
     }
 }
 
@@ -409,5 +443,3 @@ private fun UnitSelector(
         }
     }
 }
-
-
