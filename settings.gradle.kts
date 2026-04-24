@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "MiseBook"
+rootProject.name = "Sleeper"
 include(":app")
