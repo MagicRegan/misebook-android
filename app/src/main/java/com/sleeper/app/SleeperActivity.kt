@@ -9,6 +9,7 @@ import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.core.view.WindowCompat
@@ -17,7 +18,6 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sleeper.app.ui.SleeperScreen
 import com.sleeper.app.viewmodel.SleeperViewModel
 import kotlinx.coroutines.launch
@@ -33,32 +33,29 @@ import kotlinx.coroutines.launch
  */
 class SleeperActivity : ComponentActivity() {
 
-    private lateinit var vm: SleeperViewModel
+    private val vm: SleeperViewModel by viewModels()
     private var vibrator: Vibrator? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Prevent any splash / transition flash — set black before super
-        window.setBackgroundDrawableResource(android.R.color.black)
-
         super.onCreate(savedInstanceState)
+
+        // Set black background immediately to prevent any flash
+        window.setBackgroundDrawableResource(android.R.color.black)
 
         setupImmersiveMode()
         setupKeepScreenOn()
         initVibrator()
 
         setContent {
-            val viewModel: SleeperViewModel = viewModel()
-            vm = viewModel
-
-            val uiState by viewModel.uiState.collectAsState()
+            val uiState by vm.uiState.collectAsState()
 
             SleeperScreen(
                 uiState = uiState,
                 onTransformUpdate = { pan, zoom, rotation ->
-                    viewModel.updateCardTransform(pan, zoom, rotation)
+                    vm.updateCardTransform(pan, zoom, rotation)
                 },
-                onDismiss = { viewModel.onDismiss() },
-                onEmergencyReset = { viewModel.onEmergencyReset() }
+                onDismiss = { vm.onDismiss() },
+                onEmergencyReset = { vm.onEmergencyReset() }
             )
         }
 
@@ -77,7 +74,6 @@ class SleeperActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Re-apply immersive mode when resuming
         setupImmersiveMode()
     }
 
@@ -88,28 +84,20 @@ class SleeperActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * Intercepts all volume button presses and routes them to the state machine.
-     * Returns true to consume the event and prevent system volume changes.
-     */
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         return when (keyCode) {
             KeyEvent.KEYCODE_VOLUME_UP -> {
-                if (::vm.isInitialized) vm.onVolumeUp()
+                vm.onVolumeUp()
                 true
             }
             KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                if (::vm.isInitialized) vm.onVolumeDown()
+                vm.onVolumeDown()
                 true
             }
             else -> super.onKeyDown(keyCode, event)
         }
     }
 
-    /**
-     * Also consume key-up events for volume buttons to fully suppress
-     * the system volume overlay.
-     */
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
         return when (keyCode) {
             KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN -> true
@@ -130,7 +118,6 @@ class SleeperActivity : ComponentActivity() {
         controller.systemBarsBehavior =
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_BARS_BY_SWIPE
 
-        // Also set flags for older API fallback
         @Suppress("DEPRECATION")
         window.decorView.systemUiVisibility = (
             android.view.View.SYSTEM_UI_FLAG_FULLSCREEN or
@@ -141,7 +128,6 @@ class SleeperActivity : ComponentActivity() {
             android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE
         )
 
-        // Ensure status bar and nav bar area are black
         window.statusBarColor = android.graphics.Color.BLACK
         window.navigationBarColor = android.graphics.Color.BLACK
     }
